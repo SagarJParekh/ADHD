@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ADHD OS">
+<meta name="mobile-web-app-capable" content="yes">
+<title>ADHD OS — My 6-Week Operating System</title>
+<meta name="description" content="Personal ADHD tracker: daily logs, energy charts, 6-week plan, streaks and weekly reviews. Runs in the browser, data stays on your device.">
+<meta name="theme-color" content="#0e0e0e">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0e0e0e; --bg2:#161616; --bg3:#1e1e1e; --bg4:#262626;
+  --border:#2a2a2a; --border2:#383838;
+  --text:#e8e4de; --text2:#a09890; --text3:#5a5248;
+  --w1:#e8603a; --w2:#e8a03a; --w3:#c8843a; --w4:#3abf7a; --w5:#3a8ae8; --w6:#a03ae8;
+  --accent:#e8603a; --green:#3abf7a; --yellow:#e8d03a; --red:#e83a5a; --card:#161616;
+  --nav-h:72px;
+  --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-t:env(safe-area-inset-top,0px);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html{height:100%;overflow:hidden;}
+body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);height:100%;overflow:hidden;-webkit-font-smoothing:antialiased;overscroll-behavior:none;}
+
+/* LOCK */
+#lockScreen{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;padding-top:calc(40px + var(--safe-t));padding-bottom:calc(40px + var(--safe-b));}
+#lockScreen.hidden{display:none;}
+.lock-logo{font-family:'Instrument Serif',serif;font-style:italic;font-size:2.4rem;color:var(--accent);margin-bottom:6px;}
+.lock-sub{font-family:'JetBrains Mono',monospace;font-size:0.6rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--text3);margin-bottom:52px;}
+.pin-dots{display:flex;gap:18px;margin-bottom:48px;}
+.pin-dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--border2);background:transparent;transition:all 0.12s;}
+.pin-dot.filled{background:var(--accent);border-color:var(--accent);}
+.pin-dot.error{background:var(--red);border-color:var(--red);}
+@keyframes shake{0%,100%{transform:translateX(0);}20%{transform:translateX(-8px);}40%{transform:translateX(8px);}60%{transform:translateX(-5px);}80%{transform:translateX(5px);}}
+.pin-dots.shake{animation:shake 0.45s ease;}
+.numpad{display:grid;grid-template-columns:repeat(3,82px);grid-template-rows:repeat(4,82px);gap:12px;}
+.numpad-btn{width:82px;height:82px;border-radius:50%;border:none;background:var(--bg3);color:var(--text);font-family:'Syne',sans-serif;font-size:1.55rem;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:background 0.1s;-webkit-user-select:none;user-select:none;}
+.numpad-btn:active{background:var(--border2);}
+.num-sub{font-size:0.44rem;font-family:'JetBrains Mono',monospace;letter-spacing:0.1em;color:var(--text3);margin-top:2px;text-transform:uppercase;}
+.del-btn{background:transparent!important;font-size:1.2rem;}
+.del-btn:active{background:var(--bg3)!important;}
+.empty-btn{background:transparent!important;pointer-events:none;}
+.lock-error{font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--red);margin-top:24px;height:20px;text-align:center;letter-spacing:0.05em;}
+
+/* APP SHELL */
+#appShell{display:none;flex-direction:column;height:100%;overflow:hidden;}
+#appShell.visible{display:flex;}
+
+/* TOP BAR */
+.top-bar{height:calc(52px + var(--safe-t));padding-top:var(--safe-t);background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding-left:18px;padding-right:18px;flex-shrink:0;justify-content:space-between;}
+.top-logo{font-family:'Instrument Serif',serif;font-style:italic;font-size:1.25rem;color:var(--accent);}
+.top-right{display:flex;gap:8px;align-items:center;}
+.top-badge{font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text3);letter-spacing:0.06em;}
+.icon-btn{width:38px;height:38px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.icon-btn:active{background:var(--border2);}
+
+/* CONTENT */
+.content-area{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;padding:16px 16px calc(var(--nav-h) + var(--safe-b) + 20px);}
+
+/* BOTTOM NAV */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;height:calc(var(--nav-h) + var(--safe-b));padding-bottom:var(--safe-b);background:var(--bg2);border-top:1px solid var(--border);display:flex;align-items:flex-start;padding-top:8px;z-index:100;}
+.nav-tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 0;color:var(--text3);-webkit-user-select:none;user-select:none;}
+.nav-tab .nt-icon{font-size:1.35rem;line-height:1;}
+.nav-tab .nt-label{font-family:'JetBrains Mono',monospace;font-size:0.5rem;letter-spacing:0.05em;text-transform:uppercase;font-weight:500;}
+.nav-tab.active{color:var(--accent);}
+.nav-tab:active{opacity:0.65;}
+
+/* PANELS */
+.panel{display:none;}
+.panel.active{display:block;animation:fadeUp 0.2s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+
+/* TYPOGRAPHY UTILS */
+.sect-label{font-family:'JetBrains Mono',monospace;font-size:0.58rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;margin-top:20px;}
+.sect-label:first-child{margin-top:0;}
+
+/* CARDS */
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;}
+.card-title{font-family:'JetBrains Mono',monospace;font-size:0.58rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;}
+.card-value{font-size:2rem;font-weight:800;line-height:1;}
+.card-sub{font-size:0.72rem;color:var(--text2);margin-top:4px;}
+
+/* STAT ROW */
+.stat-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 14px 12px;position:relative;overflow:hidden;}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.stat-card.green::before{background:var(--green);}
+.stat-card.orange::before{background:var(--accent);}
+.stat-card.blue::before{background:var(--w5);}
+.stat-card.yellow::before{background:var(--yellow);}
+.stat-card .card-value{font-size:1.8rem;}
+
+/* PROGRESS */
+.prog-wrap{height:5px;background:var(--border2);border-radius:3px;overflow:hidden;margin-top:8px;}
+.prog-fill{height:100%;border-radius:3px;transition:width 0.4s ease;}
+
+/* SLIDERS */
+.slider-group{margin-bottom:18px;}
+.slider-label{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.slider-name{font-size:0.9rem;font-weight:600;}
+.slider-val{font-family:'JetBrains Mono',monospace;font-size:1.15rem;font-weight:700;min-width:28px;text-align:right;}
+input[type=range]{-webkit-appearance:none;width:100%;height:6px;border-radius:3px;background:var(--border2);outline:none;cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:28px;height:28px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 2px 8px rgba(232,96,58,0.4);}
+
+/* ANCHORS */
+.anchor-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
+.anchor-btn{padding:14px 4px;border:1.5px solid var(--border2);border-radius:12px;background:var(--bg3);color:var(--text2);cursor:pointer;text-align:center;font-size:0.72rem;font-weight:700;-webkit-user-select:none;user-select:none;}
+.anchor-btn .ab-icon{font-size:1.6rem;display:block;margin-bottom:5px;}
+.anchor-btn:active{opacity:0.75;}
+.anchor-btn.done{background:rgba(58,191,122,0.12);border-color:var(--green);color:var(--green);}
+
+/* CHECKROWS */
+.check-row{display:flex;align-items:center;gap:14px;padding:13px 0;border-bottom:1px solid var(--border);cursor:pointer;-webkit-user-select:none;user-select:none;min-height:50px;}
+.check-row:last-child{border-bottom:none;}
+.check-box{width:26px;height:26px;border:1.5px solid var(--border2);border-radius:7px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.12s;background:var(--bg3);}
+.check-box.checked{background:var(--green);border-color:var(--green);}
+.check-box.checked::after{content:'✓';color:white;font-size:0.85rem;font-weight:700;}
+.check-label{font-size:0.87rem;flex:1;line-height:1.4;}
+
+/* STEPPERS */
+.num-input-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);min-height:54px;}
+.num-input-row:last-child{border-bottom:none;}
+.num-input-row label{font-size:0.85rem;flex:1;}
+.num-stepper{display:flex;align-items:center;gap:0;flex-shrink:0;}
+.step-btn{width:38px;height:38px;border-radius:9px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-size:1.3rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-user-select:none;user-select:none;}
+.step-btn:active{background:var(--border2);}
+.step-val{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:700;width:46px;text-align:center;color:var(--text);}
+
+/* TEXTAREA */
+.reflection-area{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:'Syne',sans-serif;font-size:0.88rem;padding:14px;border-radius:10px;resize:none;min-height:110px;line-height:1.6;-webkit-appearance:none;}
+.reflection-area:focus{outline:none;border-color:var(--accent);}
+.reflection-area::placeholder{color:var(--text3);}
+
+/* ACTION BUTTONS */
+.action-btn{width:100%;font-family:'JetBrains Mono',monospace;font-size:0.72rem;letter-spacing:0.1em;text-transform:uppercase;padding:16px;background:var(--accent);border:none;color:white;border-radius:12px;cursor:pointer;font-weight:500;margin-top:8px;min-height:54px;-webkit-user-select:none;user-select:none;}
+.action-btn:active{opacity:0.82;transform:scale(0.98);}
+.action-btn.secondary{background:var(--bg3);color:var(--text2);border:1px solid var(--border2);}
+.action-btn.danger{background:transparent;color:var(--red);border:1px solid rgba(232,58,90,0.3);}
+
+/* HEATMAP */
+.streak-grid{display:flex;flex-wrap:wrap;gap:3px;margin-top:8px;}
+.streak-cell{width:calc((100% - 41*3px)/42);min-width:12px;aspect-ratio:1;border-radius:3px;background:var(--bg3);border:1px solid var(--border);}
+.streak-cell.has-data{background:rgba(58,191,122,0.25);border-color:rgba(58,191,122,0.5);}
+.streak-cell.today{border-color:var(--accent);border-width:2px;}
+
+/* WEEK PILLS */
+.week-selector{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+.week-pill{font-family:'JetBrains Mono',monospace;font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;padding:8px 14px;border:1px solid var(--border2);border-radius:20px;cursor:pointer;color:var(--text2);background:transparent;min-height:36px;-webkit-user-select:none;user-select:none;}
+.week-pill.active{background:var(--accent);border-color:var(--accent);color:white;}
+
+/* PLAN TASKS */
+.task-item{display:flex;gap:12px;align-items:flex-start;padding:14px 0;border-bottom:1px solid var(--border);}
+.task-item:last-of-type{border-bottom:none;}
+.task-check{width:26px;height:26px;margin-top:2px;border:1.5px solid var(--border2);border-radius:7px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.12s;background:var(--bg2);cursor:pointer;-webkit-user-select:none;user-select:none;}
+.task-check.checked{background:var(--green);border-color:var(--green);}
+.task-check.checked::after{content:'✓';color:white;font-size:0.8rem;font-weight:700;}
+.task-body{flex:1;min-width:0;}
+.task-title{font-size:0.88rem;font-weight:700;margin-bottom:4px;line-height:1.4;display:flex;align-items:flex-start;gap:6px;flex-wrap:wrap;}
+.task-cat{font-family:'JetBrains Mono',monospace;font-size:0.55rem;padding:2px 6px;border-radius:4px;text-transform:uppercase;letter-spacing:0.06em;flex-shrink:0;margin-top:2px;}
+.cat-brain{background:rgba(58,138,232,0.15);color:#5aa8f8;}
+.cat-system{background:rgba(232,160,58,0.15);color:#e8a03a;}
+.cat-body{background:rgba(58,191,122,0.15);color:#3abf7a;}
+.cat-relate{background:rgba(232,96,58,0.15);color:#e8603a;}
+.cat-finance{background:rgba(58,100,232,0.15);color:#5a80f8;}
+.task-desc{font-size:0.78rem;color:var(--text2);line-height:1.6;}
+.task-how{margin-top:6px;padding:8px 10px;background:var(--bg2);border-left:2px solid var(--border2);font-size:0.74rem;color:var(--text2);line-height:1.6;border-radius:0 4px 4px 0;}
+
+/* PLAN WEEK TABS */
+.pw-tabs{display:flex;gap:4px;overflow-x:auto;padding-bottom:0;margin-bottom:0;scrollbar-width:none;}
+.pw-tabs::-webkit-scrollbar{display:none;}
+.pwtab{flex-shrink:0;font-family:'JetBrains Mono',monospace;font-size:0.62rem;letter-spacing:0.08em;text-transform:uppercase;padding:9px 16px;background:var(--bg2);border:1px solid var(--border);border-bottom:none;border-radius:8px 8px 0 0;cursor:pointer;color:var(--text2);position:relative;top:1px;-webkit-user-select:none;user-select:none;}
+.pwtab.active{background:var(--bg3);color:var(--text);border-bottom:1px solid var(--bg3);}
+.pw-panel{display:none;background:var(--bg3);border:1px solid var(--border);border-radius:0 8px 8px 8px;padding:16px;margin-bottom:12px;}
+.pw-panel.active{display:block;}
+.pw-mantra{font-family:'Instrument Serif',serif;font-style:italic;color:var(--text2);font-size:0.88rem;margin-top:4px;margin-bottom:14px;}
+
+/* BOTTOM CARDS */
+.bottom-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;}
+.pitfall-card{padding:12px;border-radius:10px;font-size:0.76rem;line-height:1.6;}
+.pitfall-card h4{font-family:'JetBrains Mono',monospace;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:5px;}
+.pitfall{background:rgba(232,58,90,0.07);border:1px solid rgba(232,58,90,0.2);}
+.pitfall h4{color:var(--red);}
+.win-card{background:rgba(58,191,122,0.07);border:1px solid rgba(58,191,122,0.2);}
+.win-card h4{color:var(--green);}
+
+/* RULE CARDS */
+.rule-card{padding:14px 16px;border-radius:12px;background:var(--bg2);border:1px solid var(--border);margin-bottom:10px;}
+.rule-num{font-family:'JetBrains Mono',monospace;font-size:0.58rem;color:var(--text3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px;}
+.rule-text{font-family:'Instrument Serif',serif;font-style:italic;font-size:1rem;line-height:1.4;}
+
+/* CRASH STEPS */
+.crash-step{display:flex;gap:14px;align-items:flex-start;padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;margin-bottom:10px;}
+.crash-num{font-family:'JetBrains Mono',monospace;font-size:1.7rem;font-weight:800;line-height:1;flex-shrink:0;padding-top:2px;}
+.crash-title{font-size:0.95rem;font-weight:700;margin-bottom:4px;}
+.crash-desc{font-size:0.78rem;color:var(--text2);line-height:1.6;}
+
+/* SETTINGS SHEET */
+.settings-overlay{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.7);display:none;align-items:flex-end;}
+.settings-overlay.open{display:flex;}
+.settings-sheet{width:100%;background:var(--bg2);border-radius:20px 20px 0 0;padding:20px 20px calc(20px + var(--safe-b));border-top:1px solid var(--border);}
+.sheet-handle{width:40px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 20px;}
+.sheet-title{font-size:1rem;font-weight:700;margin-bottom:16px;}
+
+/* TOAST */
+.toast{position:fixed;bottom:calc(var(--nav-h) + var(--safe-b) + 16px);left:50%;transform:translateX(-50%) translateY(10px);background:var(--green);color:#051a0d;font-family:'JetBrains Mono',monospace;font-size:0.72rem;padding:10px 22px;border-radius:20px;font-weight:600;opacity:0;transition:all 0.25s;pointer-events:none;z-index:300;white-space:nowrap;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+canvas{max-width:100%;}
+
+@media print{
+  #lockScreen,.bottom-nav,.top-bar,.toast,.settings-overlay{display:none!important;}
+  #appShell{display:block!important;overflow:visible!important;height:auto!important;}
+  .content-area{overflow:visible!important;padding:0!important;}
+  .panel{display:block!important;page-break-after:always;}
+  .pw-panel{display:block!important;}
+}
+</style>
+</head>
+<body>
+
+<!-- LOCK SCREEN -->
+<div id="lockScreen">
+  <div class="lock-logo">ADHD OS</div>
+  <div class="lock-sub">6-Week Operating System</div>
+  <div class="pin-dots" id="pinDots">
+    <div class="pin-dot" id="d0"></div>
+    <div class="pin-dot" id="d1"></div>
+    <div class="pin-dot" id="d2"></div>
+    <div class="pin-dot" id="d3"></div>
+  </div>
+  <div class="numpad">
+    <button class="numpad-btn" onclick="pinPress('1')">1<span class="num-sub"></span></button>
+    <button class="numpad-btn" onclick="pinPress('2')">2<span class="num-sub">ABC</span></button>
+    <button class="numpad-btn" onclick="pinPress('3')">3<span class="num-sub">DEF</span></button>
+    <button class="numpad-btn" onclick="pinPress('4')">4<span class="num-sub">GHI</span></button>
+    <button class="numpad-btn" onclick="pinPress('5')">5<span class="num-sub">JKL</span></button>
+    <button class="numpad-btn" onclick="pinPress('6')">6<span class="num-sub">MNO</span></button>
+    <button class="numpad-btn" onclick="pinPress('7')">7<span class="num-sub">PQRS</span></button>
+    <button class="numpad-btn" onclick="pinPress('8')">8<span class="num-sub">TUV</span></button>
+    <button class="numpad-btn" onclick="pinPress('9')">9<span class="num-sub">WXYZ</span></button>
+    <button class="numpad-btn empty-btn"></button>
+    <button class="numpad-btn" onclick="pinPress('0')">0</button>
+    <button class="numpad-btn del-btn" onclick="pinDelete()">⌫</button>
+  </div>
+  <div class="lock-error" id="lockError"></div>
+</div>
+
+<!-- APP SHELL -->
+<div id="appShell">
+  <div class="top-bar">
+    <div class="top-logo">ADHD OS</div>
+    <div class="top-right">
+      <div class="top-badge" id="topBadge">0/24</div>
+      <div class="icon-btn" onclick="openSettings()">⚙️</div>
+    </div>
+  </div>
+
+  <div class="content-area" id="contentArea">
+
+    <!-- DASHBOARD -->
+    <div class="panel active" id="panel-dashboard">
+      <div id="dashDateLabel" style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--text2);margin-bottom:14px"></div>
+      <div class="stat-row">
+        <div class="stat-card green">
+          <div class="card-title">Tasks Done</div>
+          <div class="card-value" id="dashTasksDone">0</div>
+          <div class="card-sub">of 24</div>
+          <div class="prog-wrap"><div class="prog-fill" id="dashTasksBar" style="width:0%;background:var(--green)"></div></div>
+        </div>
+        <div class="stat-card orange">
+          <div class="card-title">Energy</div>
+          <div class="card-value" id="dashEnergy">—</div>
+          <div class="card-sub">today / 10</div>
+        </div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-card blue">
+          <div class="card-title">Anchor Streak</div>
+          <div class="card-value" id="dashStreak">0</div>
+          <div class="card-sub">days all 3 ✓</div>
+        </div>
+        <div class="stat-card yellow">
+          <div class="card-title">Days Logged</div>
+          <div class="card-value" id="dashDaysLogged">0</div>
+          <div class="card-sub">total entries</div>
+        </div>
+      </div>
+      <div class="sect-label">42-Day Activity</div>
+      <div class="card" style="padding:14px">
+        <div class="streak-grid" id="heatmap"></div>
+        <div style="display:flex;gap:14px;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text3)">
+          <span>▪ No log</span><span style="color:var(--green)">▪ Logged</span><span style="color:var(--accent)">▪ Today</span>
+        </div>
+      </div>
+      <div class="sect-label">Energy & Focus — Last 14 Days</div>
+      <div class="card"><canvas id="miniChart" height="100"></canvas></div>
+      <div class="sect-label">Three Rules</div>
+      <div class="rule-card" style="border-left:2px solid var(--accent)"><div class="rule-num">01</div><div class="rule-text">Never Zero. Partial always beats nothing.</div></div>
+      <div class="rule-card" style="border-left:2px solid var(--w5)"><div class="rule-num">02</div><div class="rule-text">Systems over willpower. Every time.</div></div>
+      <div class="rule-card" style="border-left:2px solid var(--green)"><div class="rule-num">03</div><div class="rule-text">Crash days are already accounted for.</div></div>
+    </div>
+
+    <!-- TODAY LOG -->
+    <div class="panel" id="panel-today">
+      <div class="sect-label">How are you right now?</div>
+      <div class="card">
+        <div class="slider-group">
+          <div class="slider-label"><span class="slider-name">⚡ Energy</span><span class="slider-val" id="energyVal" style="color:var(--accent)">5</span></div>
+          <input type="range" min="1" max="10" value="5" id="energySlider" oninput="updateSlider('energy')">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span class="slider-name">🎯 Focus</span><span class="slider-val" id="focusVal" style="color:var(--w5)">5</span></div>
+          <input type="range" min="1" max="10" value="5" id="focusSlider" oninput="updateSlider('focus')">
+        </div>
+        <div class="slider-group" style="margin-bottom:0">
+          <div class="slider-label"><span class="slider-name">😊 Mood</span><span class="slider-val" id="moodVal" style="color:var(--green)">5</span></div>
+          <input type="range" min="1" max="10" value="5" id="moodSlider" oninput="updateSlider('mood')">
+        </div>
+      </div>
+      <div class="sect-label">Daily Anchors</div>
+      <div class="anchor-row">
+        <div class="anchor-btn" id="anchor-morning" onclick="toggleAnchor('morning')"><span class="ab-icon">🌅</span>Morning</div>
+        <div class="anchor-btn" id="anchor-midday"  onclick="toggleAnchor('midday')"><span class="ab-icon">🔄</span>Midday</div>
+        <div class="anchor-btn" id="anchor-night"   onclick="toggleAnchor('night')"><span class="ab-icon">🌙</span>Night</div>
+      </div>
+      <div class="sect-label">Habits</div>
+      <div class="card">
+        <div class="check-row" onclick="toggleTodayCheck('movement')"><div class="check-box" id="chk-movement"></div><div class="check-label">💪 Moved my body today (20+ min)</div></div>
+        <div class="check-row" onclick="toggleTodayCheck('protein')"><div class="check-box" id="chk-protein"></div><div class="check-label">🥗 Protein-first breakfast</div></div>
+        <div class="check-row" onclick="toggleTodayCheck('phone')"><div class="check-box" id="chk-phone"></div><div class="check-label">📵 Phone friction system active</div></div>
+        <div class="check-row" onclick="toggleTodayCheck('capture')"><div class="check-box" id="chk-capture"></div><div class="check-label">📥 Used capture inbox</div></div>
+        <div class="check-row" onclick="toggleTodayCheck('partner')"><div class="check-box" id="chk-partner"></div><div class="check-label">💑 Connected with partner</div></div>
+        <div class="check-row" onclick="toggleTodayCheck('finance')"><div class="check-box" id="chk-finance"></div><div class="check-label">💳 Checked finance/admin note</div></div>
+        <div class="check-row" onclick="toggleTodayCheck('coldwater')"><div class="check-box" id="chk-coldwater"></div><div class="check-label">💧 Used cold water reset</div></div>
+      </div>
+      <div class="sect-label">Numbers</div>
+      <div class="card">
+        <div class="num-input-row"><label>📥 Inbox items captured</label><div class="num-stepper"><div class="step-btn" onclick="stepVal('inboxItems',-1)">−</div><div class="step-val" id="inboxItems">0</div><div class="step-btn" onclick="stepVal('inboxItems',1)">+</div></div></div>
+        <div class="num-input-row"><label>✅ Tasks completed</label><div class="num-stepper"><div class="step-btn" onclick="stepVal('tasksToday',-1)">−</div><div class="step-val" id="tasksToday">0</div><div class="step-btn" onclick="stepVal('tasksToday',1)">+</div></div></div>
+        <div class="num-input-row"><label>📱 Screen time (hrs)</label><div class="num-stepper"><div class="step-btn" onclick="stepVal('screenTime',-0.5)">−</div><div class="step-val" id="screenTime">0</div><div class="step-btn" onclick="stepVal('screenTime',0.5)">+</div></div></div>
+        <div class="num-input-row"><label>😴 Sleep last night (hrs)</label><div class="num-stepper"><div class="step-btn" onclick="stepVal('sleepHours',-0.5)">−</div><div class="step-val" id="sleepHours">7</div><div class="step-btn" onclick="stepVal('sleepHours',0.5)">+</div></div></div>
+      </div>
+      <div class="sect-label">Reflection</div>
+      <div class="card"><textarea class="reflection-area" id="dailyNote" placeholder="What went okay today? What pulled you off track? One thing to do differently tomorrow..."></textarea></div>
+      <button class="action-btn" onclick="saveToday()">Save Today's Entry</button>
+      <div id="saveStatus" style="font-family:'JetBrains Mono',monospace;font-size:0.62rem;color:var(--text3);text-align:center;margin-top:8px;height:18px"></div>
+    </div>
+
+    <!-- CHARTS -->
+    <div class="panel" id="panel-charts">
+      <div class="sect-label">Energy · Focus · Mood — All Time</div>
+      <div class="card"><canvas id="mainChart" height="180"></canvas></div>
+      <div class="sect-label">Screen Time & Sleep</div>
+      <div class="card"><div class="card-title">Screen Time (hrs/day)</div><canvas id="screenChart" height="120"></canvas></div>
+      <div class="card"><div class="card-title">Sleep (hrs/night)</div><canvas id="sleepChart" height="120"></canvas></div>
+      <div class="sect-label">Productivity</div>
+      <div class="card"><div class="card-title">Tasks Completed per Day</div><canvas id="tasksChart" height="120"></canvas></div>
+      <div class="card"><div class="card-title">Inbox Items Captured per Day</div><canvas id="inboxChart" height="120"></canvas></div>
+      <div id="noDataMsg" style="text-align:center;padding:48px 20px;font-size:0.82rem;color:var(--text3);display:none">No data yet — log your first day to see charts.</div>
+    </div>
+
+    <!-- PLAN -->
+    <div class="panel" id="panel-plan">
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-title">Overall Plan Completion</div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="flex:1"><div class="prog-wrap" style="height:8px"><div class="prog-fill" id="planProgressBar" style="width:0%;background:var(--green)"></div></div></div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.82rem;color:var(--green);font-weight:700" id="planProgressLabel">0%</div>
+        </div>
+      </div>
+      <div class="pw-tabs">
+        <div class="pwtab active" onclick="switchPlanWeek(1)">W1</div>
+        <div class="pwtab" onclick="switchPlanWeek(2)">W2</div>
+        <div class="pwtab" onclick="switchPlanWeek(3)">W3</div>
+        <div class="pwtab" onclick="switchPlanWeek(4)">W4</div>
+        <div class="pwtab" onclick="switchPlanWeek(5)">W5</div>
+        <div class="pwtab" onclick="switchPlanWeek(6)">W6</div>
+      </div>
+      <!-- W1 -->
+      <div class="pw-panel active" id="pw1">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--w1);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:4px">Week 01 · Foundation</div>
+        <div style="font-size:1.2rem;font-weight:800">Observe & Capture</div>
+        <div class="pw-mantra">"Stop fighting your chaos. Start mapping it."</div>
+        <div class="task-item"><div class="task-check" onclick="togglePlanTask(this)" data-id="t1_1"></div><div class="task-body"><div class="task-title">Build your One Capture System <span class="task-cat cat-system">System</span></div><div class="task-desc">Pick ONE place for everything. Every thought, task, worry goes here immediately.</div><div class="task-how">→ Notion, Apple Notes, Google Keep, or pocket notebook. If it's in your head, it goes in the inbox.</div></div></div>
+        <div class="task-item"><div class="task-check" onclick="togglePlanTask(this)" data-id="t1_2"></div><div class="task-body"><div class="task-title">Set up 3 daily Energy Log alarms <span class="task-cat cat-brain">Brain</span></div><div class="task-desc">Track energy, focus, mood (1–10) 3x daily for 7 days. Use this app's Today Log.</div><div class="task-how">→ Morning, afternoon, evening alarms. 60 seconds each. 7 days reveals hidden patterns.</div></div></div>
+        <div class="task-item"><div class="task-check" onclick="togglePlanTask(this)" data-id="t1_3"></div><div class="task-body"><div class="task-title">Install Screen Time — observe only <span class="task-cat cat-brain">Brain</span></div><div class="task-desc">iOS Screen Time. No changes this week — just watch which apps pull you in and when.</div><div class="task-how">→ Check weekly report on Day 7. No guilt. Just data. Act on this in Week 2.</div></div></div>
+        <div class="task-item"><div class="task-check" onclick="togglePlanTask(this)" data-id="t1_4"></div><div class="task-body"><div class="task-title">Partner ADHD Briefing conversation <span class="task-cat cat-relate">Relationship</span></div><div class="task-desc">Explain what ADHD is. Tell them what you're doing over 6 weeks. Ask: "What's the one behaviour that affects you most?"</div><div class="task-how">→ Listen without defending. Ask for patience, not management.</div></div></div>
+        <div class="bottom-cards"><div class="pitfall-card pitfall"><h4>⚠ Pitfall</h4>Doing everything at once. Week 1 is awareness only. Boredom = correct.</div><div class="pitfall-card win-card"><h4>✓ Win</h4>7 days of logs + 20+ items in capture inbox.</div></div>
+      </div>
+      <!-- W2 -->
+      <div class="pw-panel" id="pw2">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--w2);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:4px">Week 02 · Structure</div>
+        <div style="font-size:1.2rem;font-weight:800">Time Anchors</div>
+        <div class="pw-mantra">"You don't need a schedule. You need 3 anchors."</div>
+        <div class="task-item"><div class="task-check" onclick="togglePlanTask(this)" data-id="t2_1"></div><div class="task-body"><div class="task-title">Install Morning Launch (20 min max) <span class="task-cat cat-system">System</span></div><div class="task-desc">Before phone: Wake → Water → Cold water on face → Scan inbox (5 min) → Pick ONE task → Sticky note. Phone unlocked.</div><div class="task-how">→ Same order every morning. Predictability trains your brain into launch state.</div></div></div>
+        <div class="task-item"><div class="task-check" onclick="togglePlanTask(this)" data-id="t2_2"></div><div class="task-body"><div class="task-title">Install Midday Reset (5-min alarm) <span class="task-cat cat-system">System</span></div><div class="task-desc">Midday alarm. Stop 5 min. Did I do my task? What's pulling me? What do I need this afternoon?</div><div class="task-how">→ Adjust afternoon based on answer. No guilt about the morning.</div></div></div>
+        <div class="task-item"><div class="task-check" onclick="togglePlanTask(this)" data-id="t2_3"></div><div class="task-body"><div class="task-title">Install Night Shutdown (15 min) <span class="task-cat cat-brain">Brain</span></div><div class="task-desc">Review inbox → tomorrow's one task → 3 things that went okay → phone away → 10 min non-screen.</div><div class="task-how">→ Signals brain the day is done. Directly improves sleep quality.</div></div></div>
+        <div class="task-item"><div class="task-check" onclick="togglePlanTask(this)" data-id="t2_4"></div><div class="task-body"><div class="task-title">Implement Phone Friction System <span class="task-cat cat-brain">Brain</span></div><div class="task-desc">Top 3 dopamine apps → folder "intentional use." ALL non-essential notifications off. Charger out of bedroom.</div><div class="task-how">→ Making unconscious phone-grabbing physically harder.</div></div></div>
+        <div class="bottom-cards"><div class="pitfall-card pitfall"><h4>⚠ Pitfall</h4>Making anchors too long. 20/5/15 minutes max. Boring and short beats elaborate and abandoned.</div><div class="pitfall-card win-card"><h4>✓ Win</h4>All 3 anchors on 4 of 7 days. Missed days don't reset you.</div></div>
+      </div>
+      <!-- W3 -->
+      <div class="pw-panel" id="pw3">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--w3);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:4px">Week 03 · Productivity</div>
+        <div style="font-size:1.2rem;font-weight:800">Task Completion</div>
+        <div class="pw-mantra">"Finish one thing. Just one."</div>
+        <div class="task-item"><div class="task-check" onclick="togglePlanTask(this)" data-id="t3_1"></div><div class="task-body"><div class="task-title">Start Pomodoro — ADHD Edition <span class="task-cat cat-system">System</span></div><div class="task-desc">15 min work / 5 min movement break. ONE task per block. Switching = conscious decision, never a drift.</div><div class="task-how">→ Any timer app. Urgency drives the ADHD brain — countdown creates artificial deadline dopamine.</div></div></div>
+        <div class="task-item"><div class="task-check" onclick="togglePlanTask(this)" data-id="t3_2"></div><div class="task-body"><div class="task-title">Try Body Doubling at least 3x <span class="task-cat cat-brain">Brain</span></div><div class="task-desc">Partner sits nearby while both work independently. Or YouTube "study with me" / Focusmate app.</div><div class="task-how">→ Social presence regulates attention with zero interaction needed.</div></div></div>
+        <div class="task-item"><div class="task-check" onclick="togglePlanTask(this)" data-id="t3_3"></div><div class="task-body"><div class="task-title">Apply Task Decomposition Rule <span class="task-cat cat-system">System</span></div><div class="task-desc">Every heavy task needs a next PHYSICAL action. "Do taxes" → "Open laptop, find last year's tax folder."</div><div class="task-how">→ Rewrite at least 10 tasks in your inbox this way. Removes the freeze-on-entry problem.</div></div></div>
+        <div class="task-item"><div class="task-check" onclick="togglePlanTask(this)" data-id="t3_4"></div><div class="task-body"><div class="task-title">First Weekly Inbox Review (Sunday 20 min) <span class="task-cat cat-system">System</span></div><div class="task-desc">Every item: Do it, Delegate it, Delete it, or Defer it (specific date). Inbox back to zero.</div><div class="task-how">→ Your weekly mental reset. No date = delete it.</div></div></div>
+        <div class="bottom-cards"><div class="pitfall-card pitfall"><h4>⚠ Pitfall</h4>Using Pomodoro to plan tasks. The timer is for execution only.</div><div class="pitfall-card win-card"><h4>✓ Win</h4>5 tasks fully completed this week. Size irrelevant.</div></div>
+      </div>
+      <!-- W4 -->
+      <div class="pw-panel" id="pw4">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--w4);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:4px">Week 04 · Neuroscience</div>
+        <div style="font-size:1.2rem;font-weight:800">Body as Medicine</div>
+        <div class="pw-mantra">"Exercise is the closest thing to medication without medication."</div>
+        <div class="task-item"><div class="task-check" onclick="togglePlanTask(this)" data-id="t4_1"></div><div class="task-body"><div class="task-title">Minimum Viable Movement (4x/week) <span class="task-cat cat-body">Body</span></div><div class="task-desc">Raise heart rate 20 min, 4 days/week. Fast walk, dancing, YouTube HIIT, cycling. Right after Morning Launch.</div><div class="task-how">→ Type doesn't matter. Dopamine release is the goal. Fuels your most productive hours.</div></div></div>
+        <div class="task-item"><div class="task-check" onclick="togglePlanTask(this)" data-id="t4_2"></div><div class="task-body"><div class="task-title">Upgrade Cold Water to On-Demand Reset <span class="task-cat cat-body">Body</span></div><div class="task-desc">Anytime overwhelmed or impulsive: 10–15 sec cold water on face or wrists. Use in at least one tense moment.</div><div class="task-how">→ Triggers vagus nerve. Reduces impulsivity within 30 seconds. Genuinely.</div></div></div>
+        <div class="task-item"><div class="task-check" onclick="togglePlanTask(this)" data-id="t4_3"></div><div class="task-body"><div class="task-title">Set fixed wake time — same every day <span class="task-cat cat-body">Body</span></div><div class="task-desc">Including weekends. Target 7.5 hours in bed. ADHD brain needs more sleep to restore dopamine sensitivity.</div><div class="task-how">→ This single change stabilises your entire energy pattern more than almost anything else.</div></div></div>
+        <div class="task-item"><div class="task-check" onclick="togglePlanTask(this)" data-id="t4_4"></div><div class="task-body"><div class="task-title">Switch to Protein-First mornings <span class="task-cat cat-body">Body</span></div><div class="task-desc">Within 30 min of waking: 20g+ protein. Eggs, Greek yogurt, paneer, nuts + cheese.</div><div class="task-how">→ Avoids the 2-hour dopamine crash from high-carb breakfasts.</div></div></div>
+        <div class="bottom-cards"><div class="pitfall-card pitfall"><h4>⚠ Pitfall</h4>All-or-nothing. "Only 12 minutes" — go for 12. Never zero.</div><div class="pitfall-card win-card"><h4>✓ Win</h4>Moved 3+ days this week. Notice better focus on those days.</div></div>
+      </div>
+      <!-- W5 -->
+      <div class="pw-panel" id="pw5">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--w5);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:4px">Week 05 · External World</div>
+        <div style="font-size:1.2rem;font-weight:800">Relationships & Finances</div>
+        <div class="pw-mantra">"ADHD doesn't just affect you — it affects everyone around you."</div>
+        <div class="task-item"><div class="task-check" onclick="togglePlanTask(this)" data-id="t5_1"></div><div class="task-body"><div class="task-title">Relationship Repair Conversation <span class="task-cat cat-relate">Relationship</span></div><div class="task-desc">Ask partner: "Top 3 ways my ADHD affects our relationship?" For each, propose one system fix. Us vs ADHD.</div><div class="task-how">→ "I'll add every important date to my inbox immediately while you're saying it." Agree on weekly check-in.</div></div></div>
+        <div class="task-item"><div class="task-check" onclick="togglePlanTask(this)" data-id="t5_2"></div><div class="task-body"><div class="task-title">Set up Weekly Partner Check-In <span class="task-cat cat-relate">Relationship</span></div><div class="task-desc">Every Sunday, 10 min: one win + one commitment. Partner listens and acknowledges — no advice.</div><div class="task-how">→ Schedule it now at a fixed time. Makes accountability feel safe, not shameful.</div></div></div>
+        <div class="task-item"><div class="task-check" onclick="togglePlanTask(this)" data-id="t5_3"></div><div class="task-body"><div class="task-title">Finance Automation Session (1 hour) <span class="task-cat cat-finance">Finance</span></div><div class="task-desc">Auto-pay ALL recurring bills. Auto-transfer savings on payday. Create "financial decisions" note reviewed weekly only.</div><div class="task-how">→ Remove your brain from the financial loop. One session, permanent fix.</div></div></div>
+        <div class="task-item"><div class="task-check" onclick="togglePlanTask(this)" data-id="t5_4"></div><div class="task-body"><div class="task-title">Set up Shared Calendar with Partner <span class="task-cat cat-system">System</span></div><div class="task-desc">Google Calendar shared. Every commitment goes in immediately when agreed. 24hr + 2hr reminders.</div><div class="task-how">→ Add 5+ upcoming events right now to make it useful immediately.</div></div></div>
+        <div class="bottom-cards"><div class="pitfall-card pitfall"><h4>⚠ Pitfall</h4>Turning the conversation into blame. Co-design systems. Us vs ADHD, always.</div><div class="pitfall-card win-card"><h4>✓ Win</h4>All bills on auto-pay. Conversation done. Shared calendar has 5+ items.</div></div>
+      </div>
+      <!-- W6 -->
+      <div class="pw-panel" id="pw6">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--w6);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:4px">Week 06 · Mastery</div>
+        <div style="font-size:1.2rem;font-weight:800">Integrate & Sustain</div>
+        <div class="pw-mantra">"Build for the bad days, not the good ones."</div>
+        <div class="task-item"><div class="task-check" onclick="togglePlanTask(this)" data-id="t6_1"></div><div class="task-body"><div class="task-title">Write your One-Page ADHD OS <span class="task-cat cat-system">System</span></div><div class="task-desc">3 anchor sequences + times, movement, capture location, review day, partner check-in, top 3 triggers, 3 reset tools.</div><div class="task-how">→ Print it. Put it where you see it daily. Bad days: return to this page.</div></div></div>
+        <div class="task-item"><div class="task-check" onclick="togglePlanTask(this)" data-id="t6_2"></div><div class="task-body"><div class="task-title">Design and memorise your Crash Protocol <span class="task-cat cat-brain">Brain</span></div><div class="task-desc">Pre-designed response for bad ADHD days so you don't have to decide when least equipped.</div><div class="task-how">→ (1) Cold water. (2) Smallest inbox item. (3) Walk 15 min, no phone. (4) Tell partner "rough day."</div></div></div>
+        <div class="task-item"><div class="task-check" onclick="togglePlanTask(this)" data-id="t6_3"></div><div class="task-body"><div class="task-title">Do your 6-Week Energy Pattern Review <span class="task-cat cat-brain">Brain</span></div><div class="task-desc">Go to Charts tab. Find 5 best + 5 worst focus days. What preceded each? Sleep? Exercise? Food?</div><div class="task-how">→ Write your top 3 high-performance conditions. These become non-negotiables.</div></div></div>
+        <div class="task-item"><div class="task-check" onclick="togglePlanTask(this)" data-id="t6_4"></div><div class="task-body"><div class="task-title">Design your Month 2 Challenge <span class="task-cat cat-system">System</span></div><div class="task-desc">Deep work, 5K, high-interest skill, or financial target. Write it with a specific 4-week target date.</div><div class="task-how">→ Pick whatever excites you most. Excitement = dopamine = sustained effort.</div></div></div>
+        <div class="bottom-cards"><div class="pitfall-card pitfall"><h4>⚠ Pitfall</h4>Abandoning the system because "it's working now." The system IS the treatment. Keep the anchors.</div><div class="pitfall-card win-card"><h4>✓ Win</h4>Written OS. Crash protocol memorised. Feel even slightly more in control.</div></div>
+      </div>
+    </div>
+
+    <!-- WEEKLY REVIEW -->
+    <div class="panel" id="panel-weekly">
+      <div class="week-selector">
+        <div class="week-pill active" onclick="selectReviewWeek(1,this)">Week 1</div>
+        <div class="week-pill" onclick="selectReviewWeek(2,this)">Week 2</div>
+        <div class="week-pill" onclick="selectReviewWeek(3,this)">Week 3</div>
+        <div class="week-pill" onclick="selectReviewWeek(4,this)">Week 4</div>
+        <div class="week-pill" onclick="selectReviewWeek(5,this)">Week 5</div>
+        <div class="week-pill" onclick="selectReviewWeek(6,this)">Week 6</div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-card green"><div class="card-title">Avg. Energy</div><div class="card-value" id="wr_avg_energy">—</div><div class="card-sub">/ 10 this week</div></div>
+        <div class="stat-card blue"><div class="card-title">Avg. Focus</div><div class="card-value" id="wr_avg_focus">—</div><div class="card-sub">/ 10 this week</div></div>
+      </div>
+      <div class="sect-label">Numbers</div>
+      <div class="card">
+        <div class="num-input-row"><label>✅ Tasks completed this week</label><div class="num-stepper"><div class="step-btn" onclick="stepReview('wr_tasks',-1)">−</div><div class="step-val" id="wr_tasks">0</div><div class="step-btn" onclick="stepReview('wr_tasks',1)">+</div></div></div>
+        <div class="num-input-row"><label>📥 Inbox items captured</label><div class="num-stepper"><div class="step-btn" onclick="stepReview('wr_inbox',-1)">−</div><div class="step-val" id="wr_inbox">0</div><div class="step-btn" onclick="stepReview('wr_inbox',1)">+</div></div></div>
+      </div>
+      <div class="sect-label">Weekly Checklist</div>
+      <div class="card">
+        <div class="check-row" onclick="toggleWeeklyCheck('wr_partner')"><div class="check-box" id="wr_partner"></div><div class="check-label">💑 Partner check-in done</div></div>
+        <div class="check-row" onclick="toggleWeeklyCheck('wr_inbox_review')"><div class="check-box" id="wr_inbox_review"></div><div class="check-label">📥 Weekly inbox review done</div></div>
+        <div class="check-row" onclick="toggleWeeklyCheck('wr_finance')"><div class="check-box" id="wr_finance"></div><div class="check-label">💳 Finance/admin actions taken</div></div>
+        <div class="check-row" onclick="toggleWeeklyCheck('wr_moved_4')"><div class="check-box" id="wr_moved_4"></div><div class="check-label">💪 Moved body 3+ days</div></div>
+        <div class="check-row" onclick="toggleWeeklyCheck('wr_anchors')"><div class="check-box" id="wr_anchors"></div><div class="check-label">⏰ Anchors held 4+ days</div></div>
+      </div>
+      <div class="sect-label">Reflection</div>
+      <div class="card" style="margin-bottom:10px"><div class="card-title">Biggest Win This Week</div><textarea class="reflection-area" id="wr_win" placeholder="What went well? What are you proud of — no matter how small..."></textarea></div>
+      <div class="card" style="margin-bottom:10px"><div class="card-title">What Got in the Way</div><textarea class="reflection-area" id="wr_obstacle" placeholder="What pulled you off track? No judgment — just data..."></textarea></div>
+      <div class="card" style="margin-bottom:10px"><div class="card-title">One Commitment for Next Week</div><textarea class="reflection-area" id="wr_commit" placeholder="One specific thing you'll do differently or protect next week..."></textarea></div>
+      <button class="action-btn" onclick="saveWeeklyReview()">Save Week's Review</button>
+    </div>
+
+    <!-- CRASH PROTOCOL -->
+    <div class="panel" id="panel-crash">
+      <div style="background:rgba(232,58,90,0.07);border:1px solid rgba(232,58,90,0.2);border-radius:12px;padding:16px;margin-bottom:14px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--red);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">You're having a crash day. That's okay.</div>
+        <div style="font-family:'Instrument Serif',serif;font-size:0.95rem;color:var(--text2);font-style:italic;line-height:1.5">Crash days are part of the system — not failures of it. Follow these four steps.</div>
+      </div>
+      <div class="crash-step"><div class="crash-num" style="color:var(--w5)">01</div><div><div class="crash-title">Cold Water on Face</div><div class="crash-desc">10–15 seconds. Wrists or face. Triggers vagus nerve. Reduces impulsivity within 30 seconds. Do this first.</div></div></div>
+      <div class="crash-step"><div class="crash-num" style="color:var(--green)">02</div><div><div class="crash-title">One Tiny Inbox Item</div><div class="crash-desc">Open your capture inbox. Pick the smallest, easiest item. Do only that one thing. Closes one open loop — real dopamine hit.</div></div></div>
+      <div class="crash-step"><div class="crash-num" style="color:var(--yellow)">03</div><div><div class="crash-title">Walk 15 Minutes Outside</div><div class="crash-desc">No phone. No podcast. Just walk. Sunlight + movement resets cortisol and dopamine simultaneously.</div></div></div>
+      <div class="crash-step"><div class="crash-num" style="color:var(--accent)">04</div><div><div class="crash-title">Tell Partner "Rough Day"</div><div class="crash-desc">Two words. No explanation needed. Breaks isolation without requiring emotional energy you don't have.</div></div></div>
+      <div class="sect-label">After the Crash</div>
+      <div class="rule-card"><div class="rule-text">🚫 Don't catastrophise — one bad day doesn't break the system.</div></div>
+      <div class="rule-card"><div class="rule-text">↩️ Just return — pick up your next anchor. That's all.</div></div>
+      <div class="rule-card"><div class="rule-text">📊 Log the crash — data not shame. What triggered it?</div></div>
+      <div class="sect-label">Three Unbreakable Rules</div>
+      <div class="rule-card" style="border-left:2px solid var(--accent)"><div class="rule-text">Never Zero — partial always beats nothing.</div></div>
+      <div class="rule-card" style="border-left:2px solid var(--w5)"><div class="rule-text">Systems over willpower — every single time.</div></div>
+      <div class="rule-card" style="border-left:2px solid var(--green)"><div class="rule-text">Crash days are already accounted for in the system.</div></div>
+    </div>
+
+  </div><!-- end content-area -->
+
+  <!-- Bottom Nav -->
+  <nav class="bottom-nav">
+    <div class="nav-tab active" id="tab-dashboard" onclick="showPanel('dashboard',this)"><span class="nt-icon">📊</span><span class="nt-label">Home</span></div>
+    <div class="nav-tab" id="tab-today"     onclick="showPanel('today',this)"><span class="nt-icon">☀️</span><span class="nt-label">Today</span></div>
+    <div class="nav-tab" id="tab-charts"    onclick="showPanel('charts',this)"><span class="nt-icon">📈</span><span class="nt-label">Charts</span></div>
+    <div class="nav-tab" id="tab-plan"      onclick="showPanel('plan',this)"><span class="nt-icon">🗺️</span><span class="nt-label">Plan</span></div>
+    <div class="nav-tab" id="tab-weekly"    onclick="showPanel('weekly',this)"><span class="nt-icon">📋</span><span class="nt-label">Review</span></div>
+    <div class="nav-tab" id="tab-crash"     onclick="showPanel('crash',this)"><span class="nt-icon">🆘</span><span class="nt-label">Crash</span></div>
+  </nav>
+</div><!-- end appShell -->
+
+<!-- Settings Sheet -->
+<div class="settings-overlay" id="settingsOverlay" onclick="closeSettingsOutside(event)">
+  <div class="settings-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Settings & Data</div>
+    <button class="action-btn secondary" onclick="exportData()">⬇ Export Data (.json backup)</button>
+    <label class="action-btn secondary" style="display:block;text-align:center;cursor:pointer;margin-top:8px">
+      ⬆ Import Data<input type="file" accept=".json" onchange="importData(event)" style="display:none">
+    </label>
+    <button class="action-btn secondary" onclick="window.print();closeSettings()" style="margin-top:8px">⎙ Print / Save PDF</button>
+    <button class="action-btn danger" onclick="clearAllData()" style="margin-top:8px">✕ Clear All Data</button>
+    <button class="action-btn secondary" onclick="closeSettings()" style="margin-top:8px;color:var(--text3)">Close</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js" integrity="sha512-ZouKPZ+IoAIxzlI9UE8eVSxVHMBzjjBf9BTqKc9pTtjvjOIFMVJHhS3V/XYWgqLcESSAqjvdN2DuMOT3ZHNg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+'use strict';
+
+// ── PASSCODE ──────────────────────────
+const CORRECT_PIN = '2211';
+let pinBuffer = '';
+let pinLocked = false;
+
+function pinPress(d) {
+  if (pinLocked || pinBuffer.length >= 4) return;
+  pinBuffer += d;
+  updateDots();
+  if (pinBuffer.length === 4) setTimeout(checkPin, 130);
+}
+
+function pinDelete() {
+  if (pinLocked) return;
+  pinBuffer = pinBuffer.slice(0,-1);
+  updateDots();
+  document.getElementById('lockError').textContent = '';
+}
+
+function updateDots() {
+  for (let i=0;i<4;i++) {
+    const dot = document.getElementById('d'+i);
+    dot.classList.toggle('filled', i < pinBuffer.length);
+  }
+}
+
+function checkPin() {
+  if (pinBuffer === CORRECT_PIN) {
+    document.getElementById('lockScreen').classList.add('hidden');
+    document.getElementById('appShell').classList.add('visible');
+    init();
+  } else {
+    pinLocked = true;
+    document.getElementById('lockError').textContent = 'Incorrect passcode';
+    const dots = document.getElementById('pinDots');
+    for (let i=0;i<4;i++) { document.getElementById('d'+i).classList.add('error'); }
+    dots.classList.add('shake');
+    setTimeout(() => {
+      dots.classList.remove('shake');
+      for (let i=0;i<4;i++) { document.getElementById('d'+i).classList.remove('error','filled'); }
+      document.getElementById('lockError').textContent = '';
+      pinBuffer = '';
+      pinLocked = false;
+    }, 1000);
+  }
+}
+
+// ── STATE ─────────────────────────────
+const STORAGE_KEY = 'adhd_os_v2';
+const STEP_CFG = {
+  inboxItems:{min:0,max:99,step:1},
+  tasksToday:{min:0,max:99,step:1},
+  screenTime:{min:0,max:24,step:0.5},
+  sleepHours:{min:0,max:14,step:0.5}
+};
+const WR_CHECKS = ['partner','inbox_review','finance','moved_4','anchors'];
+const TODAY_CHECKS = ['movement','protein','phone','capture','partner','finance','coldwater'];
+
+let appState = {
+  dailyLogs:{}, planTasks:{}, weeklyReviews:{},
+  currentReviewWeek:1,
+  stepVals:{inboxItems:0,tasksToday:0,screenTime:0,sleepHours:7}
+};
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) { const s = JSON.parse(raw); appState = {...appState,...s}; if(!appState.stepVals) appState.stepVals={inboxItems:0,tasksToday:0,screenTime:0,sleepHours:7}; }
+  } catch(e) { console.warn('Load error',e); }
+}
+
+function saveState() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appState)); }
+  catch(e) { console.warn('Save error',e); }
+}
+
+function todayKey() { return new Date().toISOString().split('T')[0]; }
+
+// ── NAV ───────────────────────────────
+function showPanel(id, el) {
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('panel-'+id).classList.add('active');
+  document.getElementById('tab-'+id).classList.add('active');
+  document.getElementById('contentArea').scrollTop = 0;
+  if (id==='charts') renderCharts();
+  if (id==='dashboard') refreshDashboard();
+  if (id==='weekly') loadWeeklyReview(appState.currentReviewWeek);
+}
+
+// ── SLIDERS ───────────────────────────
+function updateSlider(type) {
+  document.getElementById(type+'Val').textContent = document.getElementById(type+'Slider').value;
+}
+
+// ── STEPPERS ──────────────────────────
+function stepVal(id, delta) {
+  const c = STEP_CFG[id];
+  let v = parseFloat(String(appState.stepVals[id]??c.min));
+  v = Math.round((v+delta)*10)/10;
+  v = Math.max(c.min, Math.min(c.max, v));
+  appState.stepVals[id] = v;
+  document.getElementById(id).textContent = v;
+}
+
+function stepReview(id, delta) {
+  const el = document.getElementById(id);
+  el.textContent = Math.max(0, (parseInt(el.textContent)||0)+delta);
+}
+
+function loadStepVals() {
+  Object.keys(STEP_CFG).forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.textContent = appState.stepVals[id]??STEP_CFG[id].min;
+  });
+}
+
+// ── ANCHORS / CHECKS ─────────────────
+function toggleAnchor(name) { document.getElementById('anchor-'+name).classList.toggle('done'); }
+function toggleTodayCheck(id) { document.getElementById('chk-'+id).classList.toggle('checked'); }
+function toggleWeeklyCheck(id) { const el=document.getElementById(id); if(el) el.classList.toggle('checked'); }
+
+// ── SAVE TODAY ───────────────────────
+function saveToday() {
+  const key = todayKey();
+  const entry = {
+    energy:+document.getElementById('energySlider').value,
+    focus:+document.getElementById('focusSlider').value,
+    mood:+document.getElementById('moodSlider').value,
+    anchors:{
+      morning:document.getElementById('anchor-morning').classList.contains('done'),
+      midday:document.getElementById('anchor-midday').classList.contains('done'),
+      night:document.getElementById('anchor-night').classList.contains('done')
+    },
+    checks:{},
+    inbox:appState.stepVals.inboxItems||0,
+    tasks:appState.stepVals.tasksToday||0,
+    screen:appState.stepVals.screenTime||0,
+    sleep:appState.stepVals.sleepHours||7,
+    note:document.getElementById('dailyNote').value,
+    ts:Date.now()
+  };
+  TODAY_CHECKS.forEach(c=>{ entry.checks[c]=document.getElementById('chk-'+c).classList.contains('checked'); });
+  appState.dailyLogs[key]=entry;
+  saveState();
+  refreshDashboard();
+  showToast('Today saved ✓');
+  document.getElementById('saveStatus').textContent='Saved at '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+}
+
+function loadTodayValues() {
+  const entry = appState.dailyLogs[todayKey()];
+  if (!entry) return;
+  ['energy','focus','mood'].forEach(t=>{
+    if(entry[t]!==undefined){
+      const s=document.getElementById(t+'Slider'); const v=document.getElementById(t+'Val');
+      if(s) s.value=entry[t]; if(v) v.textContent=entry[t];
+    }
+  });
+  if(entry.anchors) ['morning','midday','night'].forEach(a=>{ if(entry.anchors[a]) document.getElementById('anchor-'+a).classList.add('done'); });
+  if(entry.checks) Object.entries(entry.checks).forEach(([k,v])=>{ if(v){ const el=document.getElementById('chk-'+k); if(el) el.classList.add('checked'); } });
+  if(entry.inbox!==undefined) appState.stepVals.inboxItems=entry.inbox;
+  if(entry.tasks!==undefined) appState.stepVals.tasksToday=entry.tasks;
+  if(entry.screen!==undefined) appState.stepVals.screenTime=entry.screen;
+  if(entry.sleep!==undefined) appState.stepVals.sleepHours=entry.sleep;
+  loadStepVals();
+  if(entry.note) document.getElementById('dailyNote').value=entry.note;
+}
+
+// ── PLAN ─────────────────────────────
+function togglePlanTask(el) {
+  const id=el.dataset.id; el.classList.toggle('checked');
+  appState.planTasks[id]=el.classList.contains('checked');
+  saveState(); updatePlanProgress();
+}
+
+function updatePlanProgress() {
+  const total=document.querySelectorAll('.task-check[data-id]').length;
+  const done=Object.values(appState.planTasks).filter(Boolean).length;
+  const pct=total>0?Math.round(done/total*100):0;
+  const bar=document.getElementById('planProgressBar'); if(bar) bar.style.width=pct+'%';
+  const lbl=document.getElementById('planProgressLabel'); if(lbl) lbl.textContent=pct+'%';
+  const badge=document.getElementById('topBadge'); if(badge) badge.textContent=done+'/24';
+  const dt=document.getElementById('dashTasksDone'); if(dt) dt.textContent=done;
+  const db=document.getElementById('dashTasksBar'); if(db) db.style.width=Math.round(done/24*100)+'%';
+}
+
+function switchPlanWeek(n) {
+  document.querySelectorAll('.pw-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.pwtab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('pw'+n).classList.add('active');
+  document.querySelectorAll('.pwtab')[n-1].classList.add('active');
+}
+
+function loadPlanTasks() {
+  Object.entries(appState.planTasks).forEach(([id,val])=>{
+    const el=document.querySelector('.task-check[data-id="'+id+'"]');
+    if(el&&val) el.classList.add('checked');
+  });
+  updatePlanProgress();
+}
+
+// ── DASHBOARD ────────────────────────
+function refreshDashboard() {
+  const logs=appState.dailyLogs; const keys=Object.keys(logs).sort(); const today=todayKey();
+  const now=new Date();
+  const dl=document.getElementById('dashDateLabel');
+  if(dl) dl.textContent=now.toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const todayLog=logs[today];
+  const de=document.getElementById('dashEnergy'); if(de) de.textContent=todayLog?todayLog.energy:'—';
+  const dd=document.getElementById('dashDaysLogged'); if(dd) dd.textContent=keys.length;
+  let streak=0; const rev=[...keys].sort().reverse();
+  for(const d of rev){ const l=logs[d]; if(l&&l.anchors&&l.anchors.morning&&l.anchors.midday&&l.anchors.night) streak++; else break; }
+  const ds=document.getElementById('dashStreak'); if(ds) ds.textContent=streak;
+  buildHeatmap();
+  renderMiniDashChart(keys,logs);
+}
+
+function buildHeatmap() {
+  const c=document.getElementById('heatmap'); if(!c) return;
+  c.innerHTML=''; const today=todayKey();
+  for(let i=41;i>=0;i--){
+    const d=new Date(); d.setDate(d.getDate()-i);
+    const key=d.toISOString().split('T')[0];
+    const cell=document.createElement('div'); cell.className='streak-cell';
+    if(appState.dailyLogs[key]) cell.classList.add('has-data');
+    if(key===today) cell.classList.add('today');
+    c.appendChild(cell);
+  }
+}
+
+// ── CHARTS ───────────────────────────
+const CI={};
+function destroyChart(id){ if(CI[id]){CI[id].destroy();delete CI[id];} }
+
+function renderMiniDashChart(keys,logs) {
+  const last14=keys.slice(-14); if(!last14.length) return;
+  const labels=last14.map(k=>k.slice(5));
+  destroyChart('miniChart'); const ctx=document.getElementById('miniChart'); if(!ctx) return;
+  CI['miniChart']=new Chart(ctx,{type:'line',data:{labels,datasets:[
+    {data:last14.map(k=>logs[k].energy||0),borderColor:'#e8603a',borderWidth:2,pointRadius:2,tension:0.4,fill:false,label:'Energy'},
+    {data:last14.map(k=>logs[k].focus||0),borderColor:'#3a8ae8',borderWidth:2,pointRadius:2,tension:0.4,fill:false,label:'Focus'}
+  ]},options:{responsive:true,maintainAspectRatio:true,
+    plugins:{legend:{display:true,labels:{color:'#a09890',font:{size:11,family:'Syne'},boxWidth:12}}},
+    scales:{x:{display:false},y:{min:0,max:10,ticks:{color:'#5a5248',stepSize:5,font:{size:10}},grid:{color:'#2a2a2a'}}}}});
+}
+
+function renderCharts() {
+  const logs=appState.dailyLogs; const keys=Object.keys(logs).sort();
+  const nm=document.getElementById('noDataMsg');
+  if(!keys.length){ if(nm) nm.style.display='block'; return; }
+  if(nm) nm.style.display='none';
+  const labels=keys.map(k=>k.slice(5));
+  const baseOpts={responsive:true,maintainAspectRatio:true,
+    plugins:{legend:{display:false}},
+    scales:{x:{ticks:{color:'#5a5248',maxTicksLimit:6,font:{size:10}},grid:{color:'#2a2a2a'}},
+            y:{ticks:{color:'#5a5248',font:{size:10}},grid:{color:'#2a2a2a'}}}};
+  destroyChart('mainChart'); const mc=document.getElementById('mainChart');
+  if(mc) CI['mainChart']=new Chart(mc,{type:'line',data:{labels,datasets:[
+    {label:'Energy',data:keys.map(k=>logs[k].energy||0),borderColor:'#e8603a',borderWidth:2,pointRadius:2,tension:0.4,fill:false},
+    {label:'Focus', data:keys.map(k=>logs[k].focus||0), borderColor:'#3a8ae8',borderWidth:2,pointRadius:2,tension:0.4,fill:false},
+    {label:'Mood',  data:keys.map(k=>logs[k].mood||0),  borderColor:'#3abf7a',borderWidth:2,pointRadius:2,tension:0.4,fill:false}
+  ]},options:{...baseOpts,plugins:{legend:{labels:{color:'#a09890',font:{size:11,family:'Syne'},boxWidth:12}}},
+    scales:{x:{ticks:{color:'#5a5248',maxTicksLimit:6,font:{size:10}},grid:{color:'#2a2a2a'}},
+            y:{min:0,max:10,ticks:{color:'#5a5248',font:{size:10}},grid:{color:'#2a2a2a'}}}}});
+  const bar=(id,fn,col)=>{
+    destroyChart(id); const ctx=document.getElementById(id); if(!ctx) return;
+    CI[id]=new Chart(ctx,{type:'bar',data:{labels,datasets:[{data:keys.map(fn),backgroundColor:col+'55',borderColor:col,borderWidth:1,borderRadius:4}]},options:{...baseOpts}});
+  };
+  bar('screenChart',k=>logs[k].screen||0,'#e8a03a');
+  bar('sleepChart', k=>logs[k].sleep||0, '#3a8ae8');
+  bar('tasksChart', k=>logs[k].tasks||0, '#3abf7a');
+  bar('inboxChart', k=>logs[k].inbox||0, '#a03ae8');
+}
+
+// ── WEEKLY REVIEW ────────────────────
+function selectReviewWeek(n,el) {
+  document.querySelectorAll('.week-pill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active'); appState.currentReviewWeek=n; loadWeeklyReview(n);
+}
+
+function loadWeeklyReview(n) {
+  const data=appState.weeklyReviews['w'+n]||{};
+  document.getElementById('wr_tasks').textContent=data.tasks||0;
+  document.getElementById('wr_inbox').textContent=data.inbox||0;
+  document.getElementById('wr_win').value=data.win||'';
+  document.getElementById('wr_obstacle').value=data.obstacle||'';
+  document.getElementById('wr_commit').value=data.commit||'';
+  WR_CHECKS.forEach(c=>{ const el=document.getElementById('wr_'+c); if(el){el.classList.remove('checked'); if(data['chk_'+c]) el.classList.add('checked');} });
+  const logs=appState.dailyLogs; const allKeys=Object.keys(logs).sort();
+  const wk=allKeys.slice((n-1)*7,n*7);
+  const avg=(field)=>wk.length>0?(wk.reduce((s,k)=>s+(logs[k][field]||0),0)/wk.length).toFixed(1):'—';
+  document.getElementById('wr_avg_energy').textContent=avg('energy');
+  document.getElementById('wr_avg_focus').textContent=avg('focus');
+}
+
+function saveWeeklyReview() {
+  const n=appState.currentReviewWeek;
+  const data={
+    tasks:parseInt(document.getElementById('wr_tasks').textContent)||0,
+    inbox:parseInt(document.getElementById('wr_inbox').textContent)||0,
+    win:document.getElementById('wr_win').value,
+    obstacle:document.getElementById('wr_obstacle').value,
+    commit:document.getElementById('wr_commit').value
+  };
+  WR_CHECKS.forEach(c=>{ data['chk_'+c]=document.getElementById('wr_'+c)?.classList.contains('checked')||false; });
+  appState.weeklyReviews['w'+n]=data; saveState(); showToast('Week '+n+' review saved ✓');
+}
+
+// ── SETTINGS ─────────────────────────
+function openSettings(){ document.getElementById('settingsOverlay').classList.add('open'); }
+function closeSettings(){ document.getElementById('settingsOverlay').classList.remove('open'); }
+function closeSettingsOutside(e){ if(e.target===document.getElementById('settingsOverlay')) closeSettings(); }
+
+function exportData() {
+  try {
+    const blob=new Blob([JSON.stringify(appState,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob); const a=document.createElement('a');
+    a.href=url; a.download='adhd-os-backup-'+todayKey()+'.json'; a.click(); URL.revokeObjectURL(url);
+    showToast('Data exported ✓'); closeSettings();
+  } catch(e){ showToast('Export failed'); }
+}
+
+function importData(event) {
+  const file=event.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try {
+      const imp=JSON.parse(e.target.result); appState={...appState,...imp};
+      saveState(); loadTodayValues(); loadPlanTasks(); refreshDashboard();
+      showToast('Data imported ✓'); closeSettings();
+    } catch(err){ showToast('Import failed — invalid file'); }
+  };
+  reader.readAsText(file);
+}
+
+function clearAllData(){ if(!confirm('Clear ALL data? Cannot be undone.')) return; localStorage.removeItem(STORAGE_KEY); location.reload(); }
+
+// ── TOAST ─────────────────────────────
+function showToast(msg) {
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// ── INIT ──────────────────────────────
+function init() {
+  loadState(); loadTodayValues(); loadPlanTasks(); refreshDashboard();
+}
+</script>
+</body>
+</html>
